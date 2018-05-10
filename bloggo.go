@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"os"
 
 	"github.com/domonda/Domonda/go/types/date"
@@ -10,11 +11,30 @@ import (
 )
 
 var (
+	author = "Erik Unger"
+
 	projectDir fs.File
 	sourceDir  fs.File
 	buildDir   fs.File
 	routes     = make(map[string]interface{})
+
+	indexTemplate *template.Template
 )
+
+type pageData struct {
+	RootPath string
+	Title    string
+	Author   string
+	Body     template.HTML
+}
+
+type postData struct {
+	RootPath string
+	Title    string
+	Date     date.Date
+	Author   string
+	Body     template.HTML
+}
 
 func handlePageDir(pageDir fs.File) error {
 	return nil
@@ -30,8 +50,34 @@ func handlePostDir(postDir fs.File) error {
 
 	fmt.Println(postDate, postSlug)
 
+	bodyFile := postDir.Relative("body.html")
+	body, err := bodyFile.ReadAllString()
+	if err != nil {
+		return err
+	}
+
 	buildPostDir := buildDir.Relative(postSlug)
-	err := buildPostDir.MakeDir()
+	err = buildPostDir.MakeDir()
+	if err != nil {
+		return err
+	}
+
+	indexFile := buildPostDir.Relative("index.html")
+	writer, err := indexFile.OpenWriter()
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+
+	data := &postData{
+		RootPath: "../",
+		Title:    postSlug,
+		Date:     postDate,
+		Author:   author,
+		Body:     template.HTML(body),
+	}
+
+	err = indexTemplate.Execute(writer, data)
 	if err != nil {
 		return err
 	}
@@ -67,6 +113,17 @@ func main() {
 	}
 
 	fmt.Println("bloggo project dir:", projectDir.Path())
+
+	cssFile := sourceDir.Relative("style.css")
+	if cssFile.Exists() {
+		err = fs.CopyFile(cssFile, buildDir)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
+	indexTemplate = template.Must(template.ParseFiles(sourceDir.Relative("template.html").Path()))
 
 	pagesDir := sourceDir.Relative("pages")
 	postsDir := sourceDir.Relative("posts")
