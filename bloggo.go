@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	author = "Erik Unger"
+	author       = "Erik Unger"
+	buildDirName = "docs"
 
 	projectDir fs.File
 	sourceDir  fs.File
@@ -100,7 +101,7 @@ func main() {
 		fmt.Println("source directory does not exist:", sourceDir)
 		os.Exit(1)
 	}
-	buildDir = projectDir.Relative("build")
+	buildDir = projectDir.Relative(buildDirName)
 	err := buildDir.MakeAllDirs()
 	if err != nil {
 		fmt.Println(err)
