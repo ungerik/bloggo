@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	author       = "Erik Unger"
+	author    = "Erik Unger"
+	blogTitle = "Blog of Erik Unger"
+
 	buildDirName = "docs"
 
 	projectDir fs.File
@@ -19,22 +21,36 @@ var (
 	buildDir   fs.File
 	routes     = make(map[string]interface{})
 
-	indexTemplate *template.Template
+	pageTemplate *template.Template
+	postTemplate *template.Template
+
+	pages []*pageData
+	posts []*postData
 )
 
 type pageData struct {
 	RootPath string
+	Path     string
 	Title    string
+	Index    int
 	Author   string
 	Body     template.HTML
 }
 
 type postData struct {
 	RootPath string
+	Path     string
 	Title    string
 	Date     date.Date
 	Author   string
 	Body     template.HTML
+}
+
+type rootData struct {
+	Title  string
+	Author string
+	Pages  []*pageData
+	Posts  []*postData
 }
 
 func handlePageDir(pageDir fs.File) error {
@@ -72,16 +88,19 @@ func handlePostDir(postDir fs.File) error {
 
 	data := &postData{
 		RootPath: "../",
+		Path:     postSlug,
 		Title:    postSlug,
 		Date:     postDate,
 		Author:   author,
 		Body:     template.HTML(body),
 	}
 
-	err = indexTemplate.Execute(writer, data)
+	err = postTemplate.Execute(writer, data)
 	if err != nil {
 		return err
 	}
+
+	posts = append(posts, data)
 
 	return nil
 }
@@ -124,7 +143,8 @@ func main() {
 		}
 	}
 
-	indexTemplate = template.Must(template.ParseFiles(sourceDir.Relative("template.html").Path()))
+	pageTemplate = template.Must(template.ParseFiles(sourceDir.Relative("template.html").Path()))
+	postTemplate = pageTemplate
 
 	pagesDir := sourceDir.Relative("pages")
 	postsDir := sourceDir.Relative("posts")
@@ -140,6 +160,25 @@ func main() {
 	}
 
 	err = postsDir.ListDir(handlePostDir)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	writer, err := buildDir.Relative("index.html").OpenWriter()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	rootTemplate := template.Must(template.ParseFiles(sourceDir.Relative("root.html").Path()))
+	data := &rootData{
+		Title:  blogTitle,
+		Author: author,
+		Pages:  pages,
+		Posts:  posts,
+	}
+	err = rootTemplate.Execute(writer, data)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
