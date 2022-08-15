@@ -5,8 +5,7 @@ import (
 	"html/template"
 	"os"
 
-	"github.com/domonda/Domonda/go/types/date"
-	"github.com/pkg/errors"
+	"github.com/domonda/go-types/date"
 	fs "github.com/ungerik/go-fs"
 )
 
@@ -60,26 +59,26 @@ func handlePageDir(pageDir fs.File) error {
 func handlePostDir(postDir fs.File) error {
 	dirName := postDir.Name()
 	if len(dirName) < len("2001-12-31_x") {
-		return errors.Errorf("post directory name too short: '%s'", dirName)
+		return fmt.Errorf("post directory name too short: '%s'", dirName)
 	}
 	postDate := date.Date(dirName[:len("2001-12-31")])
 	postSlug := dirName[len("2001-12-31_"):]
 
 	fmt.Println(postDate, postSlug)
 
-	bodyFile := postDir.Relative("body.html")
+	bodyFile := postDir.Join("body.html")
 	body, err := bodyFile.ReadAllString()
 	if err != nil {
 		return err
 	}
 
-	buildPostDir := buildDir.Relative(postSlug)
+	buildPostDir := buildDir.Join(postSlug)
 	err = buildPostDir.MakeDir()
 	if err != nil {
 		return err
 	}
 
-	indexFile := buildPostDir.Relative("index.html")
+	indexFile := buildPostDir.Join("index.html")
 	writer, err := indexFile.OpenWriter()
 	if err != nil {
 		return err
@@ -110,17 +109,17 @@ func main() {
 	if len(os.Args) > 1 {
 		projectDir = fs.File(os.Args[1])
 	}
-	projectDir = projectDir.MakeAbsolute()
+	projectDir = projectDir.ToAbsPath()
 	if !projectDir.Exists() {
 		fmt.Println("project directory does not exist:", projectDir)
 		os.Exit(1)
 	}
-	sourceDir = projectDir.Relative("source")
+	sourceDir = projectDir.Join("source")
 	if !sourceDir.Exists() {
 		fmt.Println("source directory does not exist:", sourceDir)
 		os.Exit(1)
 	}
-	buildDir = projectDir.Relative(buildDirName)
+	buildDir = projectDir.Join(buildDirName)
 	err := buildDir.MakeAllDirs()
 	if err != nil {
 		fmt.Println(err)
@@ -134,7 +133,7 @@ func main() {
 
 	fmt.Println("bloggo project dir:", projectDir.Path())
 
-	cssFile := sourceDir.Relative("style.css")
+	cssFile := sourceDir.Join("style.css")
 	if cssFile.Exists() {
 		err = fs.CopyFile(cssFile, buildDir)
 		if err != nil {
@@ -143,11 +142,11 @@ func main() {
 		}
 	}
 
-	pageTemplate = template.Must(template.ParseFiles(sourceDir.Relative("template.html").Path()))
+	pageTemplate = template.Must(template.ParseFiles(sourceDir.Join("template.html").Path()))
 	postTemplate = pageTemplate
 
-	pagesDir := sourceDir.Relative("pages")
-	postsDir := sourceDir.Relative("posts")
+	pagesDir := sourceDir.Join("pages")
+	postsDir := sourceDir.Join("posts")
 	if !pagesDir.Exists() && !postsDir.Exists() {
 		fmt.Println("source/pages/ or source/posts/ must exist")
 		os.Exit(1)
@@ -165,13 +164,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	writer, err := buildDir.Relative("index.html").OpenWriter()
+	writer, err := buildDir.Join("index.html").OpenWriter()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	rootTemplate := template.Must(template.ParseFiles(sourceDir.Relative("root.html").Path()))
+	rootTemplate := template.Must(template.ParseFiles(sourceDir.Join("root.html").Path()))
 	data := &rootData{
 		Title:  blogTitle,
 		Author: author,
